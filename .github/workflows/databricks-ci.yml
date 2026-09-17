@@ -1,0 +1,50 @@
+name: RetailPro Databricks CI/CD - No DAB
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Python files
+        run: |
+          python -m py_compile src/ingest_to_bronze.py
+          python -m py_compile src/bronze_to_silver.py
+          python -m py_compile src/silver_to_gold.py
+
+  deploy:
+    needs: validate
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Upload source code to Databricks
+        run: |
+          databricks workspace import-dir src /Workspace/Shared/RetailPro-Databricks-NoDAB/src --overwrite
